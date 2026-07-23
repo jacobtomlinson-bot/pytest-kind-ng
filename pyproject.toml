@@ -1,11 +1,14 @@
 [tool.poetry]
-name = "pytest-kind"
+name = "pytest-kind-ng"
 version = "22.11.1"
 description = "Kubernetes test support with KIND for pytest"
 authors = ["Henning Jacobs <henning@jacobs1.de>"]
 license = "GPL-3.0+"
 readme = "README.md"
-repository = "https://codeberg.org/hjacobs/pytest-kind"
+repository = "https://github.com/kr8s-org/pytest-kind-ng"
+# Distribution is pytest-kind-ng, but the importable module stays pytest_kind
+# for backward compatibility, so the package must be declared explicitly.
+packages = [{ include = "pytest_kind" }]
 classifiers = [
     "Framework :: Pytest",
     "Development Status :: 5 - Production/Stable",
@@ -17,7 +20,7 @@ classifiers = [
 ]
 
 [tool.poetry.plugins.pytest11]
-pytest-kind = "pytest_kind.plugin"
+pytest-kind-ng = "pytest_kind.plugin"
 
 [tool.poetry.dependencies]
 python = ">=3.7"
