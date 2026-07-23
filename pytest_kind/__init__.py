@@ -1,3 +1,8 @@
 from .cluster import KindCluster
 
-__all__ = ["KindCluster"]
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "unknown"
+
+__all__ = ["KindCluster", "__version__"]
