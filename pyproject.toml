@@ -2,7 +2,7 @@
 name = "pytest-kind-ng"
 version = "22.11.1"
 description = "Kubernetes test support with KIND for pytest"
-authors = ["Henning Jacobs <henning@jacobs1.de>"]
+authors = ["Henning Jacobs <henning@jacobs1.de>", "Jacob Tomlinson <jacob@tomlinson.email>"]
 license = "GPL-3.0+"
 readme = "README.md"
 repository = "https://github.com/kr8s-org/pytest-kind-ng"
