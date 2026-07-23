@@ -8,8 +8,8 @@ Guidance for AI agents (and humans) working in this repository. Read this before
 [pytest](https://pytest.org) plugin that lets you test Python Kubernetes apps and operators end-to-end using
 [kind](https://kind.sigs.k8s.io/) (Kubernetes IN Docker).
 
-- **Distributed on PyPI as `pytest-kind`** (the importable package is `pytest_kind`), even though the repo/fork is
-  named `pytest-kind-ng`. Do not rename the package without a deliberate release decision.
+- **Distributed on PyPI as `pytest-kind-ng`** (the importable package is still `pytest_kind`). Do not rename the
+  importable module without a deliberate release decision.
 - The plugin exposes a session-scoped `kind_cluster` pytest fixture, backed by the `KindCluster` class.
 - Versioning is **CalVer** (`YY.MM.MICRO`, e.g. `22.11.1`).
 - License: **GPL-3.0+**.
