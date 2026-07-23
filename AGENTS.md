@@ -37,7 +37,7 @@ pyproject.toml        # PEP 621 metadata, Taskipy tasks, and pytest11 plugin ent
 ### Key implementation details (`pytest_kind/cluster.py`)
 
 - Default tool versions are pinned and overridable via env vars:
-  - `KIND_VERSION` (default `v0.17.0`), `KUBECTL_VERSION` (default `v1.25.3`).
+  - `KIND_VERSION` (default `v0.31.0`), `KUBECTL_VERSION` (default `v1.36.1`).
   - Download URLs can be overridden with `KIND_DOWNLOAD_URL` / `KUBECTL_DOWNLOAD_URL` (used by `uv run task test-local`).
 - `kind` and `kubectl` binaries are downloaded on demand into `./.pytest-kind/{cluster-name}/` (gitignored). They are
   reused across runs.
@@ -114,7 +114,7 @@ Write a test that uses the fixture:
 
 ```python
 def test_kubernetes_version(kind_cluster):
-    assert kind_cluster.api.version == ('1', '25')
+    assert kind_cluster.api.version == ('1', '35')
 ```
 
 Or drive `KindCluster` directly without pytest:
@@ -163,7 +163,7 @@ CI runs on GitHub-hosted Ubuntu runners, which have Docker available, so the rea
   `main`.
 - Keep commit messages clean — **gitlint** runs as a pre-commit hook.
 - Update tool version defaults (`KIND_VERSION` / `KUBECTL_VERSION`) and the README together when bumping supported
-  Kubernetes/kind versions; the hard-coded `'1', '25'` assertions in `test_plugin.py` also need updating.
+  Kubernetes/kind versions; the hard-coded Kubernetes version assertions in `test_plugin.py` also need updating.
 - Bump the CalVer `version` in `pyproject.toml` for releases.
 
 ## Git worktrees (required for agents)
