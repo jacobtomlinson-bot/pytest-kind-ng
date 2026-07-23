@@ -8,8 +8,7 @@ Guidance for AI agents (and humans) working in this repository. Read this before
 [pytest](https://pytest.org) plugin that lets you test Python Kubernetes apps and operators end-to-end using
 [kind](https://kind.sigs.k8s.io/) (Kubernetes IN Docker).
 
-- **Distributed on PyPI as `pytest-kind-ng`** (the importable package is still `pytest_kind`). Do not rename the
-  importable module without a deliberate release decision.
+- **Distributed on PyPI as `pytest-kind-ng`**; the importable package is `pytest_kind_ng`.
 - The plugin exposes a session-scoped `kind_cluster` pytest fixture, backed by the `KindCluster` class.
 - Versioning is **CalVer** (`YY.MM.MICRO`, e.g. `22.11.1`).
 - License: **GPL-3.0+**.
@@ -17,7 +16,7 @@ Guidance for AI agents (and humans) working in this repository. Read this before
 ### Layout
 
 ```
-pytest_kind/
+pytest_kind_ng/
   __init__.py      # exports KindCluster
   cluster.py       # KindCluster: download kind/kubectl, create/delete cluster, kubectl, port_forward, load_docker_image
   plugin.py        # pytest fixture `kind_cluster` + CLI options (pytest_addoption)
@@ -34,7 +33,7 @@ pyproject.toml        # Poetry project metadata + pytest11 plugin entry point
 .flake8
 ```
 
-### Key implementation details (`pytest_kind/cluster.py`)
+### Key implementation details (`pytest_kind_ng/cluster.py`)
 
 - Default tool versions are pinned and overridable via env vars:
   - `KIND_VERSION` (default `v0.17.0`), `KUBECTL_VERSION` (default `v1.25.3`).
@@ -47,7 +46,7 @@ pyproject.toml        # Poetry project metadata + pytest11 plugin entry point
   `ensure_kubectl()`.
 - `create()` is idempotent — it re-uses an existing cluster of the same name if present.
 
-### Plugin CLI options (`pytest_kind/plugin.py`)
+### Plugin CLI options (`pytest_kind_ng/plugin.py`)
 
 - `--cluster-name` (default `pytest-kind`)
 - `--keep-cluster` — do not delete the cluster after the session (useful for debugging)
@@ -89,7 +88,7 @@ make test             # lint + coverage run pytest + coverage report
 Run just the tests directly:
 
 ```bash
-poetry run coverage run --source=pytest_kind -m pytest tests/
+poetry run coverage run --source=pytest_kind_ng -m pytest tests/
 poetry run coverage report
 ```
 
@@ -120,7 +119,7 @@ def test_kubernetes_version(kind_cluster):
 Or drive `KindCluster` directly without pytest:
 
 ```python
-from pytest_kind import KindCluster
+from pytest_kind_ng import KindCluster
 
 cluster = KindCluster("myclustername")
 cluster.create()
