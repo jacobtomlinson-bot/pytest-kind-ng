@@ -27,9 +27,10 @@ tests/
   test_plugin.py   # exercises the fixture via pytester (creates a real cluster, pulls busybox)
 examples/
   aiohttp-helloworld/   # sample app + e2e test showing real-world usage
-.github/workflows/test.yaml   # CI (lint + test matrix)
+.github/workflows/test.yaml      # CI (lint + test matrix)
+.github/workflows/release.yaml   # build and publish tagged releases to PyPI using trusted publishing
 uv.lock               # cross-platform dependency lockfile
-pyproject.toml        # PEP 621 metadata, Taskipy tasks, and pytest11 plugin entry point
+pyproject.toml        # PEP 621 metadata, hatch-vcs versioning, Taskipy tasks, and pytest11 plugin entry point
 .pre-commit-config.yaml
 .flake8
 ```
@@ -157,6 +158,28 @@ GitHub Actions workflow: `.github/workflows/test.yaml` (runs on `pull_request`, 
 
 CI runs on GitHub-hosted Ubuntu runners, which have Docker available, so the real-cluster tests execute there.
 
+## Releasing
+
+Versions are derived from Git by `hatch-vcs`; do not add or update a static `version` in `pyproject.toml`.
+
+1. Ensure `main` contains the intended release and its checks pass.
+2. Choose the next CalVer version in `YY.MM.MICRO` form.
+3. Create an annotated tag with a leading `v`.
+4. Push the tags directly to the canonical repository:
+
+```bash
+git tag -a vYY.MM.MICRO -m "Release vYY.MM.MICRO"
+git push https://github.com/kr8s-org/pytest-kind-ng.git --tags
+```
+
+For example, use `v26.7.0` for the first release in July 2026. The `v` prefix is accepted by `hatch-vcs` and omitted
+from the resulting Python package version.
+
+Pushing the tag triggers `.github/workflows/release.yaml`. The workflow builds with `uv build` and publishes
+`pytest-kind-ng` to PyPI through OIDC trusted publishing using the `pypi` GitHub environment. PyPI must have a trusted
+publisher configured for owner `kr8s-org`, repository `pytest-kind-ng`, workflow `release.yaml`, and environment
+`pypi`.
+
 ## Contribution notes
 
 - This is a fork. `origin` is the working fork; `upstream` is `github.com/kr8s-org/pytest-kind-ng`. Open PRs against
@@ -164,7 +187,6 @@ CI runs on GitHub-hosted Ubuntu runners, which have Docker available, so the rea
 - Keep commit messages clean — **gitlint** runs as a pre-commit hook.
 - Update tool version defaults (`KIND_VERSION` / `KUBECTL_VERSION`) and the README together when bumping supported
   Kubernetes/kind versions; the hard-coded `'1', '25'` assertions in `test_plugin.py` also need updating.
-- Bump the CalVer `version` in `pyproject.toml` for releases.
 
 ## Git worktrees (required for agents)
 
