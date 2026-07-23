@@ -1,6 +1,6 @@
 # pytest-kind-ng
 
-[![Build Status](https://travis-ci.com/hjacobs/pytest-kind.svg?branch=master)](https://travis-ci.com/hjacobs/pytest-kind)
+[![Tests](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml/badge.svg)](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml)
 [![PyPI](https://img.shields.io/pypi/v/pytest-kind)](https://pypi.org/project/pytest-kind/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-kind)
 ![License](https://img.shields.io/github/license/hjacobs/pytest-kind)
