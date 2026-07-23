@@ -61,7 +61,7 @@ These can also be passed via the `PYTEST_ADDOPTS` env var (e.g. `PYTEST_ADDOPTS=
 
 - **Docker** must be installed and running — kind runs Kubernetes nodes as Docker containers. Any test that calls
   `cluster.create()` (i.e. most of the test suite, plus the examples) will fail without it.
-- **Python** `>=3.8`. CI tests 3.8–3.10.
+- **Python** `>=3.8`. CI tests 3.8–3.14.
 - **[uv](https://docs.astral.sh/uv/)** for Python, dependency, environment, task, and build management.
 - Network access on first run to download the `kind` and `kubectl` binaries (unless you point at local copies via
   `--kind-bin` / env vars).
@@ -151,7 +151,7 @@ conventions preserved.
 GitHub Actions workflow: `.github/workflows/test.yaml` (runs on `pull_request`, `push`, and `workflow_dispatch`).
 
 - **lint** job: Python 3.9, installs uv, runs `uv run --locked task lint`.
-- **test** job: matrix over Python 3.8, 3.9, and 3.10. Installs uv, runs `uv run --locked task test`, and dumps
+- **test** job: matrix over Python 3.8 through 3.14. Installs uv, runs `uv run --locked task test`, and dumps
   `docker ps --all` on failure.
 - Concurrency is set to cancel in-progress runs for the same ref/PR.
 

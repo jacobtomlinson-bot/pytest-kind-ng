@@ -44,6 +44,14 @@ jobs:
             runner: ubuntu-latest
           - python-version: "3.10"
             runner: ubuntu-latest
+          - python-version: "3.11"
+            runner: ubuntu-latest
+          - python-version: "3.12"
+            runner: ubuntu-latest
+          - python-version: "3.13"
+            runner: ubuntu-latest
+          - python-version: "3.14"
+            runner: ubuntu-latest
 
     steps:
       - name: Check out repository
