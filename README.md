@@ -16,10 +16,10 @@ The fixture will install kind 0.17.0, create a Kubernetes 1.25 cluster, and prov
 
 ## Usage
 
-Install `pytest-kind-ng` via pip or via [poetry](https://poetry.eustace.io/), e.g.:
+Install `pytest-kind-ng` as a development dependency with [uv](https://docs.astral.sh/uv/), e.g.:
 
 ```
-poetry add --dev pytest-kind-ng
+uv add --dev pytest-kind-ng
 ```
 
 Write your pytest functions and use the provided `kind_cluster` fixture, e.g.:
@@ -88,11 +88,11 @@ The kind cluster name can be set via the `--cluster-name` CLI option.
 
 The kind cluster is deleted after each pytest session, you can keep the cluster by passing `--keep-cluster` to pytest.
 
-Note that you can use the `PYTEST_ADDOPTS` environment variable to pass these options to pytest. This also works if you call pytest from a Makefile:
+You can use the `PYTEST_ADDOPTS` environment variable to pass these options through the Taskipy test task:
 
 ```bash
 # for test debugging: don't delete the kind cluster
-PYTEST_ADDOPTS=--keep-cluster make test
+PYTEST_ADDOPTS=--keep-cluster uv run task test
 ```
 
 

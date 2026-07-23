@@ -55,10 +55,10 @@ repos:
         args: ["check", "--bare"]
         stages: [push]
 
-      - id: poetry
-        name: poetry
-        description: Validates the structure of the pyproject.toml file
-        entry: poetry check
+      - id: uv-lock
+        name: uv lock
+        description: Checks that uv.lock is up to date
+        entry: uv lock --check
         language: system
         pass_filenames: false
         files: ^pyproject.toml$
