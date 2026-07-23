@@ -1,35 +1,50 @@
-[tool.poetry]
+[project]
 name = "pytest-kind-ng"
 version = "22.11.1"
 description = "Kubernetes test support with KIND for pytest"
-authors = ["Henning Jacobs <henning@jacobs1.de>", "Jacob Tomlinson <jacob@tomlinson.email>"]
-license = "GPL-3.0+"
+authors = [
+    { name = "Henning Jacobs", email = "henning@jacobs1.de" },
+    { name = "Jacob Tomlinson", email = "jacob@tomlinson.email" },
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 readme = "README.md"
-repository = "https://github.com/kr8s-org/pytest-kind-ng"
-# Distribution is pytest-kind-ng, but the importable module stays pytest_kind
-# for backward compatibility, so the package must be declared explicitly.
-packages = [{ include = "pytest_kind" }]
+requires-python = ">=3.8"
 classifiers = [
     "Framework :: Pytest",
     "Development Status :: 5 - Production/Stable",
     "Topic :: Software Development :: Testing",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10"
 ]
+dependencies = [
+    "pykube-ng>=0.30",
+]
 
-[tool.poetry.plugins.pytest11]
+[project.urls]
+Repository = "https://github.com/kr8s-org/pytest-kind-ng"
+
+[project.entry-points.pytest11]
 pytest-kind-ng = "pytest_kind.plugin"
 
-[tool.poetry.dependencies]
-python = ">=3.7"
-pykube-ng = ">=0.30"
+[tool.uv.build-backend]
+module-name = "pytest_kind"
+module-root = ""
 
-[tool.poetry.dev-dependencies]
-pytest = ">=5.1"
-pytest-cov = ">=2.7"
-pre-commit = ">=2.9.3"
+[tool.taskipy.tasks]
+lint = "pre-commit run --all-files"
+test = "coverage run --source=pytest_kind -m pytest tests/ && coverage report"
+test-local = "python -m http.server --directory fake-download 8000 & KIND_DOWNLOAD_URL=http://localhost:8000/kind coverage run --source=pytest_kind -m pytest -v tests/ && coverage report"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=2.9.3",
+    "pytest-cov>=2.7",
+    "pytest>=5.1",
+    "taskipy>=1.14.1",
+]
+
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["uv_build>=0.11.29,<0.12"]
+build-backend = "uv_build"

@@ -28,8 +28,8 @@ tests/
 examples/
   aiohttp-helloworld/   # sample app + e2e test showing real-world usage
 .github/workflows/test.yaml   # CI (lint + test matrix)
-Makefile              # install / lint / test / test.local targets
-pyproject.toml        # Poetry project metadata + pytest11 plugin entry point
+uv.lock               # cross-platform dependency lockfile
+pyproject.toml        # PEP 621 metadata, Taskipy tasks, and pytest11 plugin entry point
 .pre-commit-config.yaml
 .flake8
 ```
@@ -38,7 +38,7 @@ pyproject.toml        # Poetry project metadata + pytest11 plugin entry point
 
 - Default tool versions are pinned and overridable via env vars:
   - `KIND_VERSION` (default `v0.17.0`), `KUBECTL_VERSION` (default `v1.25.3`).
-  - Download URLs can be overridden with `KIND_DOWNLOAD_URL` / `KUBECTL_DOWNLOAD_URL` (used by `make test.local`).
+  - Download URLs can be overridden with `KIND_DOWNLOAD_URL` / `KUBECTL_DOWNLOAD_URL` (used by `uv run task test-local`).
 - `kind` and `kubectl` binaries are downloaded on demand into `./.pytest-kind/{cluster-name}/` (gitignored). They are
   reused across runs.
 - Cross-platform: handles the `.exe` suffix and download paths for Windows.
@@ -55,48 +55,48 @@ pyproject.toml        # Poetry project metadata + pytest11 plugin entry point
 - `--kind-image` — use a specific `kindest/node` image
 - `--kind-bin` / `--kind-kubectl-bin` — use existing binaries instead of downloading
 
-These can also be passed via the `PYTEST_ADDOPTS` env var (e.g. `PYTEST_ADDOPTS=--keep-cluster make test`).
+These can also be passed via the `PYTEST_ADDOPTS` env var (e.g. `PYTEST_ADDOPTS=--keep-cluster uv run task test`).
 
 ## Prerequisites
 
 - **Docker** must be installed and running — kind runs Kubernetes nodes as Docker containers. Any test that calls
   `cluster.create()` (i.e. most of the test suite, plus the examples) will fail without it.
-- **Python** `>=3.7`. CI tests 3.7–3.10.
-- **[Poetry](https://python-poetry.org/)** for dependency management and builds. CI pins `poetry==1.2.2`.
+- **Python** `>=3.8`. CI tests 3.8–3.10.
+- **[uv](https://docs.astral.sh/uv/)** for Python, dependency, environment, task, and build management.
 - Network access on first run to download the `kind` and `kubectl` binaries (unless you point at local copies via
   `--kind-bin` / env vars).
 
 ## Install
 
 ```bash
-poetry install        # or: make install
+uv sync
 ```
 
 Set up pre-commit hooks locally if you'll be committing:
 
 ```bash
-poetry run pre-commit install
+uv run pre-commit install
 ```
 
 ## Running the tests
 
-The whole suite (via `make`) runs lint first, then tests under coverage:
+Common commands are defined as Taskipy tasks in `pyproject.toml`:
 
 ```bash
-make test             # lint + coverage run pytest + coverage report
+uv run task test      # coverage run pytest + coverage report
 ```
 
 Run just the tests directly:
 
 ```bash
-poetry run coverage run --source=pytest_kind -m pytest tests/
-poetry run coverage report
+uv run coverage run --source=pytest_kind -m pytest tests/
+uv run coverage report
 ```
 
 Run a single test:
 
 ```bash
-poetry run pytest tests/test_cluster.py::test_cluster_name
+uv run pytest tests/test_cluster.py::test_cluster_name
 ```
 
 Notes:
@@ -105,7 +105,7 @@ Notes:
 - `test_create_delete` and everything in `test_plugin.py` **create real kind clusters** (need Docker) and are slow —
   cluster creation/teardown dominates wall-clock time.
 - `test_plugin.py` runs `docker pull busybox`.
-- To test the binary-download path against a local server, use `make test.local` (serves a `fake-download/` directory
+- To test the binary-download path against a local server, use `uv run task test-local` (serves `fake-download/`
   over HTTP and points `KIND_DOWNLOAD_URL` at it).
 
 ### Trying it out manually
@@ -128,7 +128,7 @@ cluster.kubectl("apply", "-f", "...")
 cluster.delete()
 ```
 
-See `examples/aiohttp-helloworld/` for an end-to-end example (`make test` in that directory builds a Docker image and
+See `examples/aiohttp-helloworld/` for an end-to-end example (`uv run task test` there builds a Docker image and
 runs an e2e test).
 
 ## Linting
@@ -136,11 +136,11 @@ runs an e2e test).
 Linting is driven entirely by **pre-commit**:
 
 ```bash
-make lint             # poetry run pre-commit run --all-files
+uv run task lint
 ```
 
 The config (`.pre-commit-config.yaml`) includes: black, reorder-python-imports, pyupgrade, flake8 (config in
-`.flake8`), mypy (with `types-requests`), bandit, pydocstyle, yamllint, safety, `poetry check`, gitlint (commit-msg
+`.flake8`), mypy (with `types-requests`), bandit, pydocstyle, yamllint, safety, `uv lock --check`, gitlint (commit-msg
 linting), and various pre-commit-hooks. Some hooks only run at the `push` stage (bandit, pyupgrade, safety).
 
 Match existing style: black formatting, imports reordered one-per-line, type annotations on public methods, GPL/CalVer
@@ -150,9 +150,9 @@ conventions preserved.
 
 GitHub Actions workflow: `.github/workflows/test.yaml` (runs on `pull_request`, `push`, and `workflow_dispatch`).
 
-- **lint** job: Python 3.9, installs Poetry, runs `make lint`.
-- **test** job: matrix over Python 3.7 (on `ubuntu-22.04`), 3.8, 3.9, 3.10 (on `ubuntu-latest`). Installs Poetry, runs
-  `poetry install` then coverage + pytest, and dumps `docker ps --all` on failure.
+- **lint** job: Python 3.9, installs uv, runs `uv run --locked task lint`.
+- **test** job: matrix over Python 3.8, 3.9, and 3.10. Installs uv, runs `uv run --locked task test`, and dumps
+  `docker ps --all` on failure.
 - Concurrency is set to cancel in-progress runs for the same ref/PR.
 
 CI runs on GitHub-hosted Ubuntu runners, which have Docker available, so the real-cluster tests execute there.
@@ -188,7 +188,7 @@ git worktree add .worktrees/my-task my-task
 ```
 
 Work, commit, and push from inside the worktree. Each worktree is a full checkout, so install dependencies there as
-needed (`poetry install`). Note that `.pytest-kind/` (downloaded binaries and cluster state) is per-checkout and
+needed (`uv sync`). Note that `.pytest-kind/` (downloaded binaries and cluster state) is per-checkout and
 gitignored, so each worktree downloads its own binaries.
 
 When finished, remove the worktree (and optionally the branch):
