@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import random
+import shlex
 import socket
 import subprocess
 import time
@@ -15,8 +16,32 @@ import pykube
 import requests
 
 
-KIND_VERSION = os.environ.get("KIND_VERSION", "v0.17.0")
-KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.25.3")
+KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
+KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
+
+ARCHITECTURES = {
+    "aarch64": "arm64",
+    "amd64": "amd64",
+    "arm64": "arm64",
+    "x86_64": "amd64",
+}
+
+
+class KindToolError(RuntimeError):
+
+    """Raised when a kind or kubectl command cannot be executed."""
+
+
+def _architecture(machine: str) -> str:
+    try:
+        return ARCHITECTURES[machine.lower()]
+    except KeyError:
+        supported = ", ".join(sorted(ARCHITECTURES))
+        raise RuntimeError(
+            f"Unsupported machine architecture {machine!r}. "
+            f"Supported architecture names are: {supported}. "
+            "Provide local binaries with --kind-bin and --kind-kubectl-bin."
+        ) from None
 
 
 class KindCluster:
@@ -34,56 +59,93 @@ class KindCluster:
         self.path = path / name
         self.path.mkdir(parents=True, exist_ok=True)
         self.kubeconfig_path = kubeconfig or (self.path / "kubeconfig")
-        self.kind_path = kind_path or (self.path / f"kind-{KIND_VERSION}")
         self.platform = platform.system().lower()
-        if self.platform == "windows":
-            self.kubectl_path = kubectl_path or (
-                self.path / f"kubectl-{KUBECTL_VERSION}.exe"
-            )
-        else:
-            self.kubectl_path = kubectl_path or (
-                self.path / f"kubectl-{KUBECTL_VERSION}"
-            )
+        self.machine = platform.machine()
+        suffix = ".exe" if self.platform == "windows" else ""
+        self.kind_path = kind_path or (self.path / f"kind-{KIND_VERSION}{suffix}")
+        self.kubectl_path = kubectl_path or (
+            self.path / f"kubectl-{KUBECTL_VERSION}{suffix}"
+        )
+
+    @property
+    def architecture(self) -> str:
+        """Return the tool-download architecture for the current machine."""
+        return _architecture(self.machine)
+
+    def _run(
+        self, tool: str, executable: Path, *args: str, **kwargs
+    ) -> subprocess.CompletedProcess:
+        command = [str(executable), *args]
+        kwargs.setdefault("stdout", subprocess.PIPE)
+        kwargs.setdefault("stderr", subprocess.PIPE)
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs["check"] = True
+        try:
+            return subprocess.run(command, **kwargs)
+        except subprocess.CalledProcessError as ex:
+            details = []
+            if ex.stdout:
+                details.append(f"stdout:\n{ex.stdout.rstrip()}")
+            if ex.stderr:
+                details.append(f"stderr:\n{ex.stderr.rstrip()}")
+            diagnostic = "\n".join(details) or "No command output was captured."
+            raise KindToolError(
+                f"{tool} command failed with exit code {ex.returncode}.\n"
+                f"Command: {shlex.join(command)}\n{diagnostic}"
+            ) from ex
+        except OSError as ex:
+            option = "--kind-bin" if tool == "kind" else "--kind-kubectl-bin"
+            raise KindToolError(
+                f"Could not execute {tool} at {executable} "
+                f"(platform={self.platform}, architecture={self.architecture}): {ex}. "
+                "The binary may be corrupt or built for a different platform. "
+                f"Delete the cached binary and retry, or use {option}."
+            ) from ex
+
+    def _download(self, url: str, destination: Path) -> None:
+        logging.info(f"Downloading {url}..")
+        tmp_file = destination.with_suffix(destination.suffix + ".tmp")
+        response = requests.get(url, stream=True)
+        try:
+            response.raise_for_status()
+            with tmp_file.open("wb") as fd:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        fd.write(chunk)
+            tmp_file.chmod(0o755)
+            tmp_file.replace(destination)
+        except Exception:
+            tmp_file.unlink(missing_ok=True)
+            raise
+        finally:
+            response.close()
 
     def ensure_kind(self):
         if not self.kind_path.exists():
             url = os.getenv(
                 "KIND_DOWNLOAD_URL",
-                f"https://github.com/kubernetes-sigs/kind/releases/download/{KIND_VERSION}/kind-{self.platform}-amd64",
+                f"https://github.com/kubernetes-sigs/kind/releases/download/{KIND_VERSION}/kind-{self.platform}-{self.architecture}",
             )
-            logging.info(f"Downloading {url}..")
-            tmp_file = self.kind_path.with_suffix(".tmp")
-            with requests.get(url, stream=True) as r:
-                r.raise_for_status()
-                with tmp_file.open("wb") as fd:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        if chunk:
-                            fd.write(chunk)
-            tmp_file.chmod(0o755)
-            tmp_file.rename(self.kind_path)
+            self._download(url, self.kind_path)
+            try:
+                self._run("kind", self.kind_path, "version")
+            except KindToolError:
+                self.kind_path.unlink()
+                raise
 
     def ensure_kubectl(self):
         if not self.kubectl_path.exists():
-            if self.platform == "windows":
-                url = os.getenv(
-                    "KUBECTL_DOWNLOAD_URL",
-                    f"https://dl.k8s.io/release/{KUBECTL_VERSION}/bin/{self.platform}/amd64/kubectl.exe",
-                )
-            else:
-                url = os.getenv(
-                    "KUBECTL_DOWNLOAD_URL",
-                    f"https://dl.k8s.io/release/{KUBECTL_VERSION}/bin/{self.platform}/amd64/kubectl",
-                )
-            logging.info(f"Downloading {url}..")
-            tmp_file = self.kubectl_path.with_suffix(".tmp")
-            with requests.get(url, stream=True) as r:
-                r.raise_for_status()
-                with tmp_file.open("wb") as fd:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        if chunk:
-                            fd.write(chunk)
-            tmp_file.chmod(0o755)
-            tmp_file.rename(self.kubectl_path)
+            executable = "kubectl.exe" if self.platform == "windows" else "kubectl"
+            url = os.getenv(
+                "KUBECTL_DOWNLOAD_URL",
+                f"https://dl.k8s.io/release/{KUBECTL_VERSION}/bin/{self.platform}/{self.architecture}/{executable}",
+            )
+            self._download(url, self.kubectl_path)
+            try:
+                self._run("kubectl", self.kubectl_path, "version", "--client")
+            except KindToolError:
+                self.kubectl_path.unlink()
+                raise
 
     def create(self, config_file: Optional[Union[str, Path]] = None):
         """Create the kind cluster if it does not exist (otherwise re-use)."""
@@ -94,9 +156,7 @@ class KindCluster:
         cluster_exists = False
 
         while not cluster_exists:
-            out = subprocess.check_output(
-                [str(self.kind_path), "get", "clusters"], encoding="utf-8"
-            )
+            out = self._run("kind", self.kind_path, "get", "clusters").stdout
             for name in out.splitlines():
                 if name == self.name:
                     cluster_exists = True
@@ -119,7 +179,7 @@ class KindCluster:
                     create_cmd += ["--config", str(config_file)]
 
                 logging.info(f"Creating cluster {self.name}..")
-                subprocess.run(create_cmd, check=True)
+                self._run("kind", self.kind_path, *create_cmd[1:])
                 cluster_exists = True
 
             if not self.kubeconfig_path.exists():
@@ -131,27 +191,26 @@ class KindCluster:
 
     def load_docker_image(self, docker_image: str):
         logging.info(f"Loading Docker image {docker_image} in cluster (usually ~5s)..")
-        subprocess.run(
-            [
-                str(self.kind_path),
-                "load",
-                "docker-image",
-                "--name",
-                self.name,
-                docker_image,
-            ],
-            check=True,
+        self._run(
+            "kind",
+            self.kind_path,
+            "load",
+            "docker-image",
+            "--name",
+            self.name,
+            docker_image,
         )
 
     def kubectl(self, *args: str, **kwargs) -> str:
         """Run a kubectl command against the cluster and return the output as string."""
         self.ensure_kubectl()
-        return subprocess.check_output(
-            [str(self.kubectl_path), *args],
+        return self._run(
+            "kubectl",
+            self.kubectl_path,
+            *args,
             env={**os.environ, "KUBECONFIG": str(self.kubeconfig_path)},
-            encoding="utf-8",
             **kwargs,
-        )
+        ).stdout
 
     @contextmanager
     def port_forward(
@@ -163,6 +222,7 @@ class KindCluster:
         retries: int = 10,
     ) -> Generator[int, None, None]:
         """Run "kubectl port-forward" for the given service/pod and use a random local port."""
+        self.ensure_kubectl()
         port_to_use: int
         proc = None
         for i in range(retries):
@@ -178,7 +238,7 @@ class KindCluster:
                     f"{port_to_use}:{remote_port}",
                     *args,
                 ],
-                env={"KUBECONFIG": str(self.kubeconfig_path)},
+                env={**os.environ, "KUBECONFIG": str(self.kubeconfig_path)},
             )
             time.sleep(1)
             returncode = proc.poll()
@@ -207,13 +267,11 @@ class KindCluster:
     def delete(self):
         """Delete the kind cluster ("kind delete cluster")."""
         logging.info(f"Deleting cluster {self.name}..")
-        subprocess.run(
-            [
-                str(self.kind_path),
-                "delete",
-                "cluster",
-                f"--name={self.name}",
-                f"--kubeconfig={self.kubeconfig_path}",
-            ],
-            check=True,
+        self._run(
+            "kind",
+            self.kind_path,
+            "delete",
+            "cluster",
+            f"--name={self.name}",
+            f"--kubeconfig={self.kubeconfig_path}",
         )

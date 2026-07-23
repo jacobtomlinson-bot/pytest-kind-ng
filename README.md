@@ -11,7 +11,7 @@
 Test your Python Kubernetes app/operator end-to-end with [kind](https://kind.sigs.k8s.io/) and [pytest](https://pytest.org).
 
 `pytest-kind-ng` is a plugin for pytest which provides the `kind_cluster` fixture.
-The fixture will install kind 0.17.0, create a Kubernetes 1.25 cluster, and provide convenience functionality such as port forwarding.
+The fixture will install kind 0.31.0 and kubectl 1.36.1, create a Kubernetes 1.35 cluster, and provide convenience functionality such as port forwarding.
 
 
 ## Usage
@@ -26,7 +26,7 @@ Write your pytest functions and use the provided `kind_cluster` fixture, e.g.:
 
 ```python
 def test_kubernetes_version(kind_cluster):
-    assert kind_cluster.api.version == ('1', '25')
+    assert kind_cluster.api.version == ('1', '35')
 ```
 
 To load your custom Docker image and apply deployment manifests:
@@ -99,5 +99,5 @@ PYTEST_ADDOPTS=--keep-cluster uv run task test
 ## Notes
 
 * The `kind_cluster` fixture is session-scoped, i.e. the same cluster will be used across all test modules/functions.
-* The `kind` and `kubectl` binaries will be downloaded once to the local directory `./.pytest-kind/{cluster-name}/`. You can use them to interact with the cluster (e.g. when `--keep-cluster` is used).
+* The `kind` and `kubectl` binaries for the host architecture will be downloaded once to the local directory `./.pytest-kind/{cluster-name}/`. AMD64 and ARM64 hosts are supported. You can use the binaries to interact with the cluster (e.g. when `--keep-cluster` is used).
 * Some cluster pods might not be ready immediately (e.g. kind's CoreDNS take a moment), add wait/poll functionality as required to make your tests predictable.
