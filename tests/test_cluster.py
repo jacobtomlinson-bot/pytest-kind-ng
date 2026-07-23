@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pytest_kind_ng import KindCluster
+from pytest_kind import KindCluster
 
 
 def test_cluster_name():

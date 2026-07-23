@@ -64,7 +64,7 @@ jobs:
       - name: Run tests
         run: |
           poetry install
-          poetry run coverage run --source=pytest_kind_ng -m pytest tests/
+          poetry run coverage run --source=pytest_kind -m pytest tests/
           poetry run coverage report
 
       - name: Show Docker resources

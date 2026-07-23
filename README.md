@@ -72,7 +72,7 @@ KindCluster has the following attributes:
 You can also use KindCluster directly without pytest:
 
 ```python
-from pytest_kind_ng import KindCluster
+from pytest_kind import KindCluster
 
 cluster = KindCluster("myclustername")
 cluster.create()
