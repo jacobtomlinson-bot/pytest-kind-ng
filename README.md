@@ -1,25 +1,25 @@
 # pytest-kind-ng
 
 [![Tests](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml/badge.svg)](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml)
-[![PyPI](https://img.shields.io/pypi/v/pytest-kind)](https://pypi.org/project/pytest-kind/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-kind)
-![License](https://img.shields.io/github/license/hjacobs/pytest-kind)
+[![PyPI](https://img.shields.io/pypi/v/pytest-kind-ng)](https://pypi.org/project/pytest-kind-ng/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-kind-ng)
+![License](https://img.shields.io/github/license/kr8s-org/pytest-kind-ng)
 ![CalVer](https://img.shields.io/badge/calver-YY.MM.MICRO-22bfda.svg)
 
 > A maintained fork of pytest-kind
 
 Test your Python Kubernetes app/operator end-to-end with [kind](https://kind.sigs.k8s.io/) and [pytest](https://pytest.org).
 
-`pytest-kind` is a plugin for pytest which provides the `kind_cluster` fixture.
+`pytest-kind-ng` is a plugin for pytest which provides the `kind_cluster` fixture.
 The fixture will install kind 0.17.0, create a Kubernetes 1.25 cluster, and provide convenience functionality such as port forwarding.
 
 
 ## Usage
 
-Install `pytest-kind` via pip or via [poetry](https://poetry.eustace.io/), e.g.:
+Install `pytest-kind-ng` via pip or via [poetry](https://poetry.eustace.io/), e.g.:
 
 ```
-poetry add --dev pytest-kind
+poetry add --dev pytest-kind-ng
 ```
 
 Write your pytest functions and use the provided `kind_cluster` fixture, e.g.:
