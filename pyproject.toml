@@ -1,6 +1,6 @@
 [project]
 name = "pytest-kind-ng"
-version = "22.11.1"
+dynamic = ["version"]
 description = "Kubernetes test support with KIND for pytest"
 authors = [
     { name = "Henning Jacobs", email = "henning@jacobs1.de" },
@@ -32,9 +32,14 @@ Repository = "https://github.com/kr8s-org/pytest-kind-ng"
 [project.entry-points.pytest11]
 pytest-kind-ng = "pytest_kind.plugin"
 
-[tool.uv.build-backend]
-module-name = "pytest_kind"
-module-root = ""
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "pytest_kind/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pytest_kind"]
 
 [tool.taskipy.tasks]
 lint = "pre-commit run --all-files"
@@ -50,5 +55,5 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.11.29,<0.12"]
-build-backend = "uv_build"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"

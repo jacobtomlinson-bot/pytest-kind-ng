@@ -893,7 +893,6 @@ wheels = [
 
 [[package]]
 name = "pytest-kind-ng"
-version = "22.11.1"
 source = { editable = "." }
 dependencies = [
     { name = "pykube-ng" },
