@@ -38,8 +38,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python-version: "3.7"
-            runner: ubuntu-22.04
           - python-version: "3.8"
             runner: ubuntu-latest
           - python-version: "3.9"
