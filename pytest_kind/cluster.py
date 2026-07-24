@@ -3,28 +3,29 @@ import os
 import platform
 import random
 import shlex
+import shutil
 import socket
+import ssl
 import subprocess
 import time
-from contextlib import closing
 from contextlib import contextmanager
+from http.client import HTTPException
 from pathlib import Path
 from typing import Generator
 from typing import Optional
 from typing import Union
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.request import urlopen
 
 import pykube
-import requests
-from requests.adapters import HTTPAdapter
-from requests.adapters import Retry
 
 
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
 
 DOWNLOAD_RETRIES = 2
-DOWNLOAD_RETRY_STATUS_CODES = (408, 429, 500, 502, 503, 504)
-DOWNLOAD_TIMEOUT = (10, 60)
+DOWNLOAD_TIMEOUT = 60
 
 ARCHITECTURES = {
     "aarch64": "arm64",
@@ -49,6 +50,12 @@ def _architecture(machine: str) -> str:
             f"Supported architecture names are: {supported}. "
             "Provide local binaries with --kind-bin and --kind-kubectl-bin."
         ) from None
+
+
+def _retryable_download_error(error: Exception) -> bool:
+    if not isinstance(error, HTTPError):
+        return True
+    return error.code in (408, 429) or 500 <= error.code < 600
 
 
 class KindCluster:
@@ -110,30 +117,34 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
-        logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
-        retry_policy = Retry(
-            total=DOWNLOAD_RETRIES,
-            backoff_factor=1,
-            status_forcelist=DOWNLOAD_RETRY_STATUS_CODES,
-        )
-
         try:
-            with closing(requests.Session()) as session:
-                session.mount("http://", HTTPAdapter(max_retries=retry_policy))
-                session.mount("https://", HTTPAdapter(max_retries=retry_policy))
-                with closing(
-                    session.get(
-                        url,
-                        stream=True,
-                        timeout=DOWNLOAD_TIMEOUT,
+            for attempt in range(DOWNLOAD_RETRIES + 1):
+                logging.info(
+                    f"Downloading {url} "
+                    f"(attempt {attempt + 1}/{DOWNLOAD_RETRIES + 1}).."
+                )
+                try:
+                    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
+                        with tmp_file.open("wb") as fd:
+                            shutil.copyfileobj(response, fd)
+                    break
+                except (
+                    HTTPException,
+                    URLError,
+                    ConnectionError,
+                    TimeoutError,
+                    socket.timeout,
+                    ssl.SSLError,
+                ) as ex:
+                    tmp_file.unlink(missing_ok=True)
+                    if not _retryable_download_error(ex) or attempt == DOWNLOAD_RETRIES:
+                        raise
+                    delay = 2**attempt
+                    logging.warning(
+                        f"Download failed: {ex}. Retrying in {delay} second(s).."
                     )
-                ) as response:
-                    response.raise_for_status()
-                    with tmp_file.open("wb") as fd:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                fd.write(chunk)
+                    time.sleep(delay)
             tmp_file.chmod(0o755)
             tmp_file.replace(destination)
         finally:

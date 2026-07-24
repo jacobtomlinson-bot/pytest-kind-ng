@@ -1,9 +1,9 @@
 import subprocess
 import sys
 from pathlib import Path
+from urllib.error import HTTPError
 
 import pytest
-import requests
 
 from pytest_kind import KindCluster
 from pytest_kind import KindToolError
@@ -66,7 +66,7 @@ def test_ensure_kind_does_not_retry_permanent_http_error(
     monkeypatch.setenv("KIND_DOWNLOAD_URL", f"{http_server.url}/missing")
     cluster = KindCluster("download-not-found")
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(HTTPError):
         cluster.ensure_kind()
 
     assert not cluster.kind_path.exists()
