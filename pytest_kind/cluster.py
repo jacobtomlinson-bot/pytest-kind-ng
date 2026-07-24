@@ -10,12 +10,14 @@ import subprocess
 import time
 from contextlib import contextmanager
 from http.client import HTTPException
+from http.client import IncompleteRead
 from pathlib import Path
 from typing import Generator
 from typing import Optional
 from typing import Union
 from urllib.error import HTTPError
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import pykube
@@ -24,7 +26,7 @@ import pykube
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
 
-DOWNLOAD_RETRIES = 2
+DOWNLOAD_ATTEMPTS = 3
 DOWNLOAD_TIMEOUT = 60
 
 ARCHITECTURES = {
@@ -53,6 +55,8 @@ def _architecture(machine: str) -> str:
 
 
 def _retryable_download_error(error: Exception) -> bool:
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return False
     if not isinstance(error, HTTPError):
         return True
     return error.code in (408, 429) or 500 <= error.code < 600
@@ -117,14 +121,20 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
+        scheme = urlparse(url).scheme
+        if scheme not in ("http", "https"):
+            raise ValueError(f"Unsupported download URL scheme {scheme!r}")
+
         logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
         try:
-            for attempt in range(DOWNLOAD_RETRIES + 1):
+            for attempt in range(DOWNLOAD_ATTEMPTS):
                 try:
                     with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
                         with tmp_file.open("wb") as fd:
                             shutil.copyfileobj(response, fd)
+                        if response.length:
+                            raise IncompleteRead(b"", response.length)
                     break
                 except (
                     HTTPException,
@@ -135,7 +145,10 @@ class KindCluster:
                     ssl.SSLError,
                 ) as ex:
                     tmp_file.unlink(missing_ok=True)
-                    if not _retryable_download_error(ex) or attempt == DOWNLOAD_RETRIES:
+                    retryable = _retryable_download_error(ex)
+                    if isinstance(ex, HTTPError):
+                        ex.close()
+                    if not retryable or attempt == DOWNLOAD_ATTEMPTS - 1:
                         raise
                     delay = 2**attempt
                     logging.warning(
