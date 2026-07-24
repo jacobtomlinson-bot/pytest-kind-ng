@@ -31,7 +31,7 @@ jobs:
         run: uv run --locked task lint
 
   test:
-    name: Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }} on ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -52,6 +52,8 @@ jobs:
             runner: ubuntu-latest
           - python-version: "3.14"
             runner: ubuntu-latest
+          - python-version: "3.14"
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Check out repository
