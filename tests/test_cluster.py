@@ -1,14 +1,12 @@
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 import requests
 
 from pytest_kind import KindCluster
 from pytest_kind import KindToolError
-from pytest_kind.cluster import DOWNLOAD_TIMEOUT
 
 
 def test_cluster_name():
@@ -43,61 +41,36 @@ def test_ensure_tools(monkeypatch, tmp_path):
     subprocess.run([cluster.kubectl_path, "version", "--client"], check=True)
 
 
-def test_download_retries_transient_request_failure(monkeypatch, tmp_path):
+def test_ensure_kind_retries_transient_download_error(
+    monkeypatch, tmp_path, http_server
+):
+    monkeypatch.chdir(tmp_path)
+    executable = b"#!/bin/sh\nexit 0\n"
+    http_server.push(503)
+    http_server.push(200, executable)
+    monkeypatch.setenv("KIND_DOWNLOAD_URL", f"{http_server.url}/kind")
     cluster = KindCluster("download-retry")
-    destination = tmp_path / "kubectl"
-    response = Mock()
-    response.iter_content.return_value = [b"downloaded"]
-    attempts = []
 
-    def get(url, **kwargs):
-        attempts.append((url, kwargs))
-        if len(attempts) == 1:
-            raise requests.exceptions.SSLError("TLS connection closed")
-        return response
+    cluster.ensure_kind()
 
-    monkeypatch.setattr(requests, "get", get)
-    sleep = Mock()
-    monkeypatch.setattr("pytest_kind.cluster.time.sleep", sleep)
-
-    cluster._download("https://example.com/kubectl", destination)
-
-    assert destination.read_bytes() == b"downloaded"
-    assert attempts == [
-        (
-            "https://example.com/kubectl",
-            {"stream": True, "timeout": DOWNLOAD_TIMEOUT},
-        ),
-        (
-            "https://example.com/kubectl",
-            {"stream": True, "timeout": DOWNLOAD_TIMEOUT},
-        ),
-    ]
-    sleep.assert_called_once_with(1)
-    response.close.assert_called_once_with()
+    assert cluster.kind_path.read_bytes() == executable
+    assert http_server.requests == ["/kind", "/kind"]
 
 
-def test_download_does_not_retry_permanent_http_error(monkeypatch, tmp_path):
+def test_ensure_kind_does_not_retry_permanent_http_error(
+    monkeypatch, tmp_path, http_server
+):
+    monkeypatch.chdir(tmp_path)
+    http_server.push(404)
+    http_server.push(200, b"not used")
+    monkeypatch.setenv("KIND_DOWNLOAD_URL", f"{http_server.url}/missing")
     cluster = KindCluster("download-not-found")
-    destination = tmp_path / "kubectl"
-    response = Mock(status_code=404)
-    error = requests.exceptions.HTTPError("not found", response=response)
-    response.raise_for_status.side_effect = error
-    get = Mock(return_value=response)
-    monkeypatch.setattr(requests, "get", get)
-    sleep = Mock()
-    monkeypatch.setattr("pytest_kind.cluster.time.sleep", sleep)
 
     with pytest.raises(requests.exceptions.HTTPError):
-        cluster._download("https://example.com/missing", destination)
+        cluster.ensure_kind()
 
-    get.assert_called_once_with(
-        "https://example.com/missing",
-        stream=True,
-        timeout=DOWNLOAD_TIMEOUT,
-    )
-    sleep.assert_not_called()
-    response.close.assert_called_once_with()
+    assert not cluster.kind_path.exists()
+    assert http_server.requests == ["/missing"]
 
 
 def test_kubectl_failure_includes_command_output(monkeypatch, tmp_path):

@@ -6,6 +6,7 @@ import shlex
 import socket
 import subprocess
 import time
+from contextlib import closing
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
@@ -14,12 +15,15 @@ from typing import Union
 
 import pykube
 import requests
+from requests.adapters import HTTPAdapter
+from requests.adapters import Retry
 
 
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
 
-DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_RETRIES = 2
+DOWNLOAD_RETRY_STATUS_CODES = (408, 429, 500, 502, 503, 504)
 DOWNLOAD_TIMEOUT = (10, 60)
 
 ARCHITECTURES = {
@@ -106,47 +110,34 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
+        logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
-        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
-            logging.info(f"Downloading {url} (attempt {attempt}/{DOWNLOAD_ATTEMPTS})..")
-            response = None
-            try:
-                response = requests.get(
-                    url,
-                    stream=True,
-                    timeout=DOWNLOAD_TIMEOUT,
-                )
-                response.raise_for_status()
-                with tmp_file.open("wb") as fd:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            fd.write(chunk)
-                tmp_file.chmod(0o755)
-                tmp_file.replace(destination)
-                return
-            except requests.RequestException as ex:
-                tmp_file.unlink(missing_ok=True)
-                status_code = (
-                    ex.response.status_code if ex.response is not None else None
-                )
-                retryable = (
-                    status_code is None
-                    or status_code == 408
-                    or (status_code == 429 or status_code >= 500)
-                )
-                if not retryable or attempt == DOWNLOAD_ATTEMPTS:
-                    raise
-                delay = 2 ** (attempt - 1)
-                logging.warning(
-                    f"Download failed: {ex}. Retrying in {delay} second(s).."
-                )
-                time.sleep(delay)
-            except Exception:
-                tmp_file.unlink(missing_ok=True)
-                raise
-            finally:
-                if response is not None:
-                    response.close()
+        retry_policy = Retry(
+            total=DOWNLOAD_RETRIES,
+            backoff_factor=1,
+            status_forcelist=DOWNLOAD_RETRY_STATUS_CODES,
+        )
+
+        try:
+            with closing(requests.Session()) as session:
+                session.mount("http://", HTTPAdapter(max_retries=retry_policy))
+                session.mount("https://", HTTPAdapter(max_retries=retry_policy))
+                with closing(
+                    session.get(
+                        url,
+                        stream=True,
+                        timeout=DOWNLOAD_TIMEOUT,
+                    )
+                ) as response:
+                    response.raise_for_status()
+                    with tmp_file.open("wb") as fd:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                fd.write(chunk)
+            tmp_file.chmod(0o755)
+            tmp_file.replace(destination)
+        finally:
+            tmp_file.unlink(missing_ok=True)
 
     def ensure_kind(self):
         if not self.kind_path.exists():
