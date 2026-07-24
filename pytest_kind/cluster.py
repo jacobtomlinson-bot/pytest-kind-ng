@@ -19,6 +19,9 @@ import requests
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
 
+DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_TIMEOUT = (10, 60)
+
 ARCHITECTURES = {
     "aarch64": "arm64",
     "amd64": "amd64",
@@ -103,22 +106,47 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
-        logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
-        response = requests.get(url, stream=True)
-        try:
-            response.raise_for_status()
-            with tmp_file.open("wb") as fd:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        fd.write(chunk)
-            tmp_file.chmod(0o755)
-            tmp_file.replace(destination)
-        except Exception:
-            tmp_file.unlink(missing_ok=True)
-            raise
-        finally:
-            response.close()
+        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            logging.info(f"Downloading {url} (attempt {attempt}/{DOWNLOAD_ATTEMPTS})..")
+            response = None
+            try:
+                response = requests.get(
+                    url,
+                    stream=True,
+                    timeout=DOWNLOAD_TIMEOUT,
+                )
+                response.raise_for_status()
+                with tmp_file.open("wb") as fd:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            fd.write(chunk)
+                tmp_file.chmod(0o755)
+                tmp_file.replace(destination)
+                return
+            except requests.RequestException as ex:
+                tmp_file.unlink(missing_ok=True)
+                status_code = (
+                    ex.response.status_code if ex.response is not None else None
+                )
+                retryable = (
+                    status_code is None
+                    or status_code == 408
+                    or (status_code == 429 or status_code >= 500)
+                )
+                if not retryable or attempt == DOWNLOAD_ATTEMPTS:
+                    raise
+                delay = 2 ** (attempt - 1)
+                logging.warning(
+                    f"Download failed: {ex}. Retrying in {delay} second(s).."
+                )
+                time.sleep(delay)
+            except Exception:
+                tmp_file.unlink(missing_ok=True)
+                raise
+            finally:
+                if response is not None:
+                    response.close()
 
     def ensure_kind(self):
         if not self.kind_path.exists():
