@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml/badge.svg)](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/test.yaml)
 [![PyPI](https://img.shields.io/pypi/v/pytest-kind-ng)](https://pypi.org/project/pytest-kind-ng/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-kind-ng)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-kind-ng)](https://pypi.org/project/pytest-kind-ng/)
 ![License](https://img.shields.io/github/license/kr8s-org/pytest-kind-ng)
 ![CalVer](https://img.shields.io/badge/calver-YY.MM.MICRO-22bfda.svg)
 
