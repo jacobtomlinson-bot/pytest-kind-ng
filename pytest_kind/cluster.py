@@ -117,13 +117,10 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
+        logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
         try:
             for attempt in range(DOWNLOAD_RETRIES + 1):
-                logging.info(
-                    f"Downloading {url} "
-                    f"(attempt {attempt + 1}/{DOWNLOAD_RETRIES + 1}).."
-                )
                 try:
                     with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
                         with tmp_file.open("wb") as fd:
