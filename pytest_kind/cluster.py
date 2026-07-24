@@ -3,21 +3,31 @@ import os
 import platform
 import random
 import shlex
+import shutil
 import socket
+import ssl
 import subprocess
 import time
 from contextlib import contextmanager
+from http.client import HTTPException
+from http.client import IncompleteRead
 from pathlib import Path
 from typing import Generator
 from typing import Optional
 from typing import Union
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 import pykube
-import requests
 
 
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
+
+DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_TIMEOUT = 60
 
 ARCHITECTURES = {
     "aarch64": "arm64",
@@ -42,6 +52,14 @@ def _architecture(machine: str) -> str:
             f"Supported architecture names are: {supported}. "
             "Provide local binaries with --kind-bin and --kind-kubectl-bin."
         ) from None
+
+
+def _retryable_download_error(error: Exception) -> bool:
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return False
+    if not isinstance(error, HTTPError):
+        return True
+    return error.code in (408, 429) or 500 <= error.code < 600
 
 
 class KindCluster:
@@ -103,22 +121,44 @@ class KindCluster:
             ) from ex
 
     def _download(self, url: str, destination: Path) -> None:
+        scheme = urlparse(url).scheme
+        if scheme not in ("http", "https"):
+            raise ValueError(f"Unsupported download URL scheme {scheme!r}")
+
         logging.info(f"Downloading {url}..")
         tmp_file = destination.with_suffix(destination.suffix + ".tmp")
-        response = requests.get(url, stream=True)
         try:
-            response.raise_for_status()
-            with tmp_file.open("wb") as fd:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        fd.write(chunk)
+            for attempt in range(DOWNLOAD_ATTEMPTS):
+                try:
+                    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
+                        with tmp_file.open("wb") as fd:
+                            shutil.copyfileobj(response, fd)
+                        if response.length:
+                            raise IncompleteRead(b"", response.length)
+                    break
+                except (
+                    HTTPException,
+                    URLError,
+                    ConnectionError,
+                    TimeoutError,
+                    socket.timeout,
+                    ssl.SSLError,
+                ) as ex:
+                    tmp_file.unlink(missing_ok=True)
+                    retryable = _retryable_download_error(ex)
+                    if isinstance(ex, HTTPError):
+                        ex.close()
+                    if not retryable or attempt == DOWNLOAD_ATTEMPTS - 1:
+                        raise
+                    delay = 2**attempt
+                    logging.warning(
+                        f"Download failed: {ex}. Retrying in {delay} second(s).."
+                    )
+                    time.sleep(delay)
             tmp_file.chmod(0o755)
             tmp_file.replace(destination)
-        except Exception:
-            tmp_file.unlink(missing_ok=True)
-            raise
         finally:
-            response.close()
+            tmp_file.unlink(missing_ok=True)
 
     def ensure_kind(self):
         if not self.kind_path.exists():
