@@ -96,6 +96,24 @@ PYTEST_ADDOPTS=--keep-cluster uv run task test
 ```
 
 
+## Releasing
+
+Releases use CalVer in the form `YY.MM.MICRO` and are published from Git tags by
+[the release workflow](https://github.com/kr8s-org/pytest-kind-ng/actions/workflows/release.yaml). The package version
+is derived from the tag by `hatch-vcs`; it is not stored in `pyproject.toml`.
+
+From an up-to-date `main` branch, create an annotated tag with a leading `v`, then push the tags directly to the
+canonical repository:
+
+```bash
+git tag -a vYY.MM.MICRO -m "Release vYY.MM.MICRO"
+git push https://github.com/kr8s-org/pytest-kind-ng.git --tags
+```
+
+For example, the first release in July 2026 would use `v26.7.0`. Pushing the tag starts the trusted-publishing
+workflow, which builds the package and publishes it to PyPI without a long-lived API token.
+
+
 ## Notes
 
 * The `kind_cluster` fixture is session-scoped, i.e. the same cluster will be used across all test modules/functions.

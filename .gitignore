@@ -1,3 +1,4 @@
+pytest_kind/_version.py
 dist/
 *.pyc
 *.swp
