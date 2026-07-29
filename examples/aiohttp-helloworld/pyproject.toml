@@ -5,7 +5,7 @@ description = "Basic example of pytest-kind-ng"
 authors = [
     { name = "Henning Jacobs", email = "henning@jacobs1.de" },
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = []
 
 [tool.taskipy.tasks]
@@ -23,4 +23,5 @@ dev = [
     "pytest-kind-ng==22.11.1",
     "pytest>=5.1,<6",
     "taskipy>=1.14.1",
+    "requests>=2",
 ]
