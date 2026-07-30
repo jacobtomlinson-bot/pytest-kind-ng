@@ -139,8 +139,8 @@ workflow, which builds the package and publishes it to PyPI without a long-lived
 
 * The `kind_cluster` fixture is session-scoped, i.e. the same cluster will be used across all test modules/functions.
 * The `kind` and `kubectl` binaries for each host platform, architecture, and tool version are downloaded once to
-  the user cache directory (`$XDG_CACHE_HOME/pytest-kind` on Linux, defaulting to `~/.cache/pytest-kind`;
-  `~/Library/Caches/pytest-kind` on macOS; or `%LOCALAPPDATA%\pytest-kind` on Windows). Set
-  `PYTEST_KIND_CACHE_DIR` to use a different cache directory. AMD64 and ARM64 hosts are supported. You can use
-  the binaries to interact with the cluster (e.g. when `--keep-cluster` is used).
+  the platform-specific user cache directory selected by
+  [platformdirs](https://platformdirs.readthedocs.io/). Set `PYTEST_KIND_CACHE_DIR` to use a different cache
+  directory. AMD64 and ARM64 hosts are supported. You can use the binaries to interact with the cluster (e.g. when
+  `--keep-cluster` is used).
 * Some cluster pods might not be ready immediately (e.g. kind's CoreDNS take a moment), add wait/poll functionality as required to make your tests predictable.

@@ -1,17 +1,35 @@
+import os
+import shutil
 from collections import deque
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from typing import Deque
 from typing import Generator
 from typing import List
 from typing import NamedTuple
 from typing import Optional
+from unittest.mock import patch
 
 import pytest
 
 
 pytest_plugins = ["pytester"]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def tool_cache(tmp_path_factory) -> Generator[Path, None, None]:
+    cache_path = tmp_path_factory.mktemp("tool-cache")
+    with patch.dict(os.environ, {"PYTEST_KIND_CACHE_DIR": str(cache_path)}):
+        yield cache_path
+
+
+@pytest.fixture
+def empty_tool_cache(tool_cache: Path) -> Path:
+    shutil.rmtree(tool_cache)
+    tool_cache.mkdir()
+    return tool_cache
 
 
 class QueuedResponse(NamedTuple):

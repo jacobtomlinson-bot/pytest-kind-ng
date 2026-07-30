@@ -7,7 +7,6 @@ import shutil
 import socket
 import ssl
 import subprocess
-import sys
 import tempfile
 import time
 from contextlib import contextmanager
@@ -22,6 +21,8 @@ from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
+
+from platformdirs import user_cache_path
 
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
@@ -66,20 +67,7 @@ def _tool_cache_dir() -> Path:
     configured_path = os.environ.get("PYTEST_KIND_CACHE_DIR")
     if configured_path:
         return Path(configured_path).expanduser()
-
-    if sys.platform == "win32":
-        cache_home = os.environ.get("LOCALAPPDATA")
-        if cache_home:
-            return Path(cache_home) / "pytest-kind"
-        return Path.home() / "AppData" / "Local" / "pytest-kind"
-
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Caches" / "pytest-kind"
-
-    cache_home = os.environ.get("XDG_CACHE_HOME")
-    if cache_home:
-        return Path(cache_home).expanduser() / "pytest-kind"
-    return Path.home() / ".cache" / "pytest-kind"
+    return user_cache_path("pytest-kind", appauthor=False)
 
 
 class KindCluster:
