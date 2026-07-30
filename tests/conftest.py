@@ -1,6 +1,7 @@
 from collections import deque
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from typing import Deque
 from typing import Generator
@@ -12,6 +13,12 @@ import pytest
 
 
 pytest_plugins = ["pytester"]
+
+
+@pytest.fixture
+def empty_tool_cache(monkeypatch, tmp_path) -> Path:
+    monkeypatch.setenv("PYTEST_KIND_CACHE_DIR", str(tmp_path))
+    return tmp_path
 
 
 class QueuedResponse(NamedTuple):

@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.error import HTTPError
 
 import pytest
@@ -20,6 +21,46 @@ def test_cluster_kubeconfig():
     assert cluster.kubeconfig_path == path
 
 
+def test_tool_cache_is_shared_across_clusters_and_checkouts(
+    monkeypatch, tmp_path, empty_tool_cache
+):
+    cache_path = empty_tool_cache
+    checkout_a = tmp_path / "checkout-a"
+    checkout_b = tmp_path / "checkout-b"
+    checkout_a.mkdir()
+    checkout_b.mkdir()
+    downloads = []
+
+    def download(self, url, destination):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        downloads.append(destination)
+        destination.write_bytes(b"fake")
+
+    monkeypatch.setattr(KindCluster, "_download", download)
+    monkeypatch.setattr(
+        KindCluster,
+        "_run",
+        lambda *args, **kwargs: SimpleNamespace(stdout=""),
+    )
+
+    monkeypatch.chdir(checkout_a)
+    cluster_a = KindCluster("cluster-a")
+    cluster_a.ensure_kind()
+    cluster_a.ensure_kubectl()
+
+    monkeypatch.chdir(checkout_b)
+    cluster_b = KindCluster("cluster-b")
+    cluster_b.ensure_kind()
+    cluster_b.ensure_kubectl()
+
+    expected_path = cache_path / cluster_a.platform / cluster_a.architecture
+    assert cluster_a.kind_path == expected_path / cluster_a.kind_path.name
+    assert cluster_a.kubectl_path == expected_path / cluster_a.kubectl_path.name
+    assert cluster_b.kind_path == cluster_a.kind_path
+    assert cluster_b.kubectl_path == cluster_a.kubectl_path
+    assert downloads == [cluster_a.kind_path, cluster_a.kubectl_path]
+
+
 def test_cluster_api_not_implemented():
     cluster = KindCluster("foo")
     with pytest.raises(NotImplementedError, match=r"KindCluster\.api"):
@@ -34,7 +75,7 @@ def test_create_delete():
         cluster.delete()
 
 
-def test_ensure_tools(monkeypatch, tmp_path):
+def test_ensure_tools(monkeypatch, tmp_path, empty_tool_cache):
     monkeypatch.chdir(tmp_path)
     cluster = KindCluster("ensure-tools")
 
@@ -52,7 +93,7 @@ def test_ensure_tools(monkeypatch, tmp_path):
     reason="downloaded test executable uses a POSIX shell script",
 )
 def test_ensure_kind_retries_transient_download_error(
-    monkeypatch, tmp_path, http_server, retry_delays
+    monkeypatch, tmp_path, http_server, retry_delays, empty_tool_cache
 ):
     monkeypatch.chdir(tmp_path)
     executable = b"#!/bin/sh\nexit 0\n"
@@ -73,7 +114,7 @@ def test_ensure_kind_retries_transient_download_error(
     reason="downloaded test executable uses a POSIX shell script",
 )
 def test_ensure_kind_retries_interrupted_download(
-    monkeypatch, tmp_path, http_server, retry_delays
+    monkeypatch, tmp_path, http_server, retry_delays, empty_tool_cache
 ):
     monkeypatch.chdir(tmp_path)
     executable = b"#!/bin/sh\nexit 0\n"
@@ -91,7 +132,7 @@ def test_ensure_kind_retries_interrupted_download(
 
 
 def test_ensure_kind_does_not_retry_permanent_http_error(
-    monkeypatch, tmp_path, http_server, retry_delays
+    monkeypatch, tmp_path, http_server, retry_delays, empty_tool_cache
 ):
     monkeypatch.chdir(tmp_path)
     http_server.push(404)
@@ -108,25 +149,24 @@ def test_ensure_kind_does_not_retry_permanent_http_error(
 
 
 def test_ensure_kind_cleans_up_after_exhausted_retries(
-    monkeypatch, tmp_path, http_server, retry_delays
+    monkeypatch, tmp_path, http_server, retry_delays, empty_tool_cache
 ):
     monkeypatch.chdir(tmp_path)
     for _ in range(3):
         http_server.push(503)
     monkeypatch.setenv("KIND_DOWNLOAD_URL", f"{http_server.url}/unavailable")
     cluster = KindCluster("download-exhausted")
-    tmp_file = cluster.kind_path.with_suffix(cluster.kind_path.suffix + ".tmp")
 
     with pytest.raises(HTTPError):
         cluster.ensure_kind()
 
     assert not cluster.kind_path.exists()
-    assert not tmp_file.exists()
+    assert list(cluster.kind_path.parent.glob("*.tmp")) == []
     assert http_server.requests == ["/unavailable"] * 3
     assert retry_delays == [1, 2]
 
 
-def test_ensure_kind_rejects_non_http_download(monkeypatch, tmp_path):
+def test_ensure_kind_rejects_non_http_download(monkeypatch, tmp_path, empty_tool_cache):
     monkeypatch.chdir(tmp_path)
     source = tmp_path / "kind"
     source.write_bytes(b"not used")

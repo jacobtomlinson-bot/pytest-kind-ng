@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-dependencies = []
+dependencies = ["platformdirs>=4.0"]
 
 [project.urls]
 Repository = "https://github.com/kr8s-org/pytest-kind-ng"
