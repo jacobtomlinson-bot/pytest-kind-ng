@@ -1,4 +1,51 @@
 import subprocess
+from types import SimpleNamespace
+
+import pytest
+
+from pytest_kind.plugin import kind_cluster
+
+
+@pytest.mark.parametrize(
+    ("created", "keep", "deleted"),
+    [
+        (False, False, False),
+        (True, False, True),
+        (True, True, False),
+    ],
+)
+def test_kind_cluster_only_deletes_clusters_it_created(
+    monkeypatch, created, keep, deleted
+):
+    class FakeKindCluster:
+        def __init__(self, *args, **kwargs):
+            self.deleted = False
+
+        def create(self):
+            return created
+
+        def delete(self):
+            self.deleted = True
+
+    options = {
+        "cluster_name": "reused",
+        "keep_cluster": keep,
+        "kubeconfig": None,
+        "kind_image": None,
+        "kind_bin": None,
+        "kind_kubectl_bin": None,
+    }
+    request = SimpleNamespace(
+        config=SimpleNamespace(getoption=lambda option: options[option])
+    )
+    monkeypatch.setattr("pytest_kind.plugin.KindCluster", FakeKindCluster)
+
+    fixture = kind_cluster.__wrapped__(request)
+    cluster = next(fixture)
+    with pytest.raises(StopIteration):
+        next(fixture)
+
+    assert cluster.deleted is deleted
 
 
 def test_kind_cluster(testdir):

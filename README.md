@@ -107,7 +107,9 @@ cluster.delete()
 
 The kind cluster name can be set via the `--cluster-name` CLI option.
 
-The kind cluster is deleted after each pytest session, you can keep the cluster by passing `--keep-cluster` to pytest.
+Clusters created by the fixture are deleted after each pytest session. A cluster
+that already existed and was reused is left running. You can also keep a newly
+created cluster by passing `--keep-cluster` to pytest.
 
 You can use the `PYTEST_ADDOPTS` environment variable to pass these options through the Taskipy test task:
 

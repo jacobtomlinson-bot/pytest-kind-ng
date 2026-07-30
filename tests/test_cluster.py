@@ -67,6 +67,43 @@ def test_cluster_api_not_implemented():
         getattr(cluster, "api")
 
 
+def test_create_reports_reused_cluster(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    cluster = KindCluster("existing")
+    monkeypatch.setattr(cluster, "ensure_kind", lambda: None)
+    monkeypatch.setattr(
+        cluster,
+        "_run",
+        lambda *args, **kwargs: SimpleNamespace(stdout="other\nexisting\n"),
+    )
+
+    assert cluster.create() is False
+
+
+def test_create_reports_new_cluster(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    cluster = KindCluster("new")
+    commands = []
+
+    def run(tool, executable, *args, **kwargs):
+        commands.append(args)
+        return SimpleNamespace(stdout="")
+
+    monkeypatch.setattr(cluster, "ensure_kind", lambda: None)
+    monkeypatch.setattr(cluster, "_run", run)
+
+    assert cluster.create() is True
+    assert commands == [
+        ("get", "clusters"),
+        (
+            "create",
+            "cluster",
+            "--name=new",
+            f"--kubeconfig={cluster.kubeconfig_path}",
+        ),
+    ]
+
+
 def test_create_delete():
     cluster = KindCluster("pytest-kind-test-create-delete")
     try:

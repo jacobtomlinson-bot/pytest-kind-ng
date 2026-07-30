@@ -215,13 +215,14 @@ class KindCluster:
                 self.kubectl_path.unlink()
                 raise
 
-    def create(self, config_file: Optional[Union[str, Path]] = None):
-        """Create the kind cluster if it does not exist (otherwise re-use)."""
+    def create(self, config_file: Optional[Union[str, Path]] = None) -> bool:
+        """Create the kind cluster, returning whether a new cluster was created."""
         self.ensure_kind()
 
         self.kubeconfig_path.touch(0o600, exist_ok=True)
 
         cluster_exists = False
+        cluster_created = False
 
         while not cluster_exists:
             out = self._run("kind", self.kind_path, "get", "clusters").stdout
@@ -249,10 +250,13 @@ class KindCluster:
                 logging.info(f"Creating cluster {self.name}..")
                 self._run("kind", self.kind_path, *create_cmd[1:])
                 cluster_exists = True
+                cluster_created = True
 
             if not self.kubeconfig_path.exists():
                 self.delete()
                 cluster_exists = False
+
+        return cluster_created
 
     def load_docker_image(self, docker_image: str):
         logging.info(f"Loading Docker image {docker_image} in cluster (usually ~5s)..")

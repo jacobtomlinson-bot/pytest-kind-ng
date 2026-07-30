@@ -21,9 +21,9 @@ def kind_cluster(request):
         kind_path=Path(kind_path) if kind_path else None,
         kubectl_path=Path(kubectl_path) if kubectl_path else None,
     )
-    cluster.create()
+    created = cluster.create()
     yield cluster
-    if not keep:
+    if created and not keep:
         cluster.delete()
 
 
