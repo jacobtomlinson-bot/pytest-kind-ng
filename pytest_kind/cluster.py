@@ -7,6 +7,8 @@ import shutil
 import socket
 import ssl
 import subprocess
+import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from http.client import HTTPException
@@ -60,6 +62,26 @@ def _retryable_download_error(error: Exception) -> bool:
     return error.code in (408, 429) or 500 <= error.code < 600
 
 
+def _tool_cache_dir() -> Path:
+    configured_path = os.environ.get("PYTEST_KIND_CACHE_DIR")
+    if configured_path:
+        return Path(configured_path).expanduser()
+
+    if sys.platform == "win32":
+        cache_home = os.environ.get("LOCALAPPDATA")
+        if cache_home:
+            return Path(cache_home) / "pytest-kind"
+        return Path.home() / "AppData" / "Local" / "pytest-kind"
+
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "pytest-kind"
+
+    cache_home = os.environ.get("XDG_CACHE_HOME")
+    if cache_home:
+        return Path(cache_home).expanduser() / "pytest-kind"
+    return Path.home() / ".cache" / "pytest-kind"
+
+
 class KindCluster:
     def __init__(
         self,
@@ -78,9 +100,13 @@ class KindCluster:
         self.platform = platform.system().lower()
         self.machine = platform.machine()
         suffix = ".exe" if self.platform == "windows" else ""
-        self.kind_path = kind_path or (self.path / f"kind-{KIND_VERSION}{suffix}")
+        cache_architecture = ARCHITECTURES.get(
+            self.machine.lower(), self.machine.lower()
+        )
+        tool_path = _tool_cache_dir() / self.platform / cache_architecture
+        self.kind_path = kind_path or (tool_path / f"kind-{KIND_VERSION}{suffix}")
         self.kubectl_path = kubectl_path or (
-            self.path / f"kubectl-{KUBECTL_VERSION}{suffix}"
+            tool_path / f"kubectl-{KUBECTL_VERSION}{suffix}"
         )
 
     @property
@@ -133,7 +159,14 @@ class KindCluster:
             raise ValueError(f"Unsupported download URL scheme {scheme!r}")
 
         logging.info(f"Downloading {url}..")
-        tmp_file = destination.with_suffix(destination.suffix + ".tmp")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        tmp_fd, tmp_name = tempfile.mkstemp(
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+        )
+        os.close(tmp_fd)
+        tmp_file = Path(tmp_name)
         try:
             for attempt in range(DOWNLOAD_ATTEMPTS):
                 try:

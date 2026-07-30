@@ -41,7 +41,7 @@ packages = ["pytest_kind"]
 [tool.taskipy.tasks]
 lint = "pre-commit run --all-files"
 test = "coverage run --source=pytest_kind -m pytest tests/ && coverage report"
-test-local = "python -m http.server --directory fake-download 8000 & KIND_DOWNLOAD_URL=http://localhost:8000/kind coverage run --source=pytest_kind -m pytest -v tests/ && coverage report"
+test-local = "python -m http.server --directory fake-download 8000 & PYTEST_KIND_CACHE_DIR=.pytest-kind/tools KIND_DOWNLOAD_URL=http://localhost:8000/kind coverage run --source=pytest_kind -m pytest -v tests/ && coverage report"
 
 [dependency-groups]
 dev = [
