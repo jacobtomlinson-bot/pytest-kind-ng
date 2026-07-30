@@ -13,15 +13,13 @@ from http.client import HTTPException
 from http.client import IncompleteRead
 from pathlib import Path
 from typing import Generator
+from typing import NoReturn
 from typing import Optional
 from typing import Union
 from urllib.error import HTTPError
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
-
-import pykube
-
 
 KIND_VERSION = os.environ.get("KIND_VERSION", "v0.31.0")
 KUBECTL_VERSION = os.environ.get("KUBECTL_VERSION", "v1.36.1")
@@ -89,6 +87,15 @@ class KindCluster:
     def architecture(self) -> str:
         """Return the tool-download architecture for the current machine."""
         return _architecture(self.machine)
+
+    @property
+    def api(self) -> NoReturn:
+        """Raise an error explaining how to configure a Kubernetes API client."""
+        raise NotImplementedError(
+            "KindCluster.api is no longer implemented. Use "
+            "kind_cluster.kubeconfig_path with the Kubernetes client library "
+            "of your choice."
+        )
 
     def _run(
         self, tool: str, executable: Path, *args: str, **kwargs
@@ -225,9 +232,6 @@ class KindCluster:
             if not self.kubeconfig_path.exists():
                 self.delete()
                 cluster_exists = False
-
-        config = pykube.KubeConfig.from_file(self.kubeconfig_path)
-        self.api = pykube.HTTPClient(config)
 
     def load_docker_image(self, docker_image: str):
         logging.info(f"Loading Docker image {docker_image} in cluster (usually ~5s)..")

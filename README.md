@@ -25,24 +25,46 @@ uv add --dev pytest-kind-ng
 Write your pytest functions and use the provided `kind_cluster` fixture, e.g.:
 
 ```python
+def test_cluster_name(kind_cluster):
+    assert kind_cluster.name == "pytest-kind"
+```
+
+### Querying the kind cluster's API
+
+`pytest-kind-ng` does not install or select a Kubernetes client library. The fixture exposes
+`kind_cluster.kubeconfig_path`, which can be passed to the client of your choice.
+
+For example, install [kr8s](https://docs.kr8s.org/) separately:
+
+```console
+uv add --dev kr8s
+```
+
+```python
+import kr8s
+
 def test_kubernetes_version(kind_cluster):
-    assert kind_cluster.api.version == ('1', '35')
+    api = kr8s.api(kubeconfig=kind_cluster.kubeconfig_path)
+    version = api.version()
+    assert version["major"] == "1"
+    assert version["minor"] == "35"
 ```
 
 To load your custom Docker image and apply deployment manifests:
 
 ```python
+import kr8s
 import requests
-from pykube import Pod
 
 def test_myapp(kind_cluster):
     kind_cluster.load_docker_image("myapp")
     kind_cluster.kubectl("apply", "-f", "deployment.yaml")
     kind_cluster.kubectl("rollout", "status", "deployment/myapp")
 
-    # using Pykube to query pods
-    for pod in Pod.objects(kind_cluster.api).filter(selector="app=myapp"):
-        assert "Sucessfully started" in pod.logs()
+    api = kr8s.api(kubeconfig=kind_cluster.kubeconfig_path)
+    pods = list(kr8s.get("pods", api=api, label_selector="app=myapp"))
+    assert pods
+    assert all(pod.ready() for pod in pods)
 
     with kind_cluster.port_forward("service/myapp", 80) as port:
         r = requests.get(f"http://localhost:{port}/hello/world")
@@ -67,7 +89,6 @@ KindCluster has the following attributes:
 * `kubeconfig_path`: the path to the Kubeconfig file to access the cluster
 * `kind_path`: path to the `kind` binary
 * `kubectl_path`: path to the `kubectl` binary
-* `api`: [pykube](https://pykube.readthedocs.io/) HTTPClient instance to access the cluster from Python
 
 You can also use KindCluster directly without pytest:
 

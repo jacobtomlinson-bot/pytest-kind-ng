@@ -6,8 +6,13 @@ def test_kind_cluster(testdir):
         """
     import socket
 
+    import kr8s
+
     def test_cluster_api(kind_cluster):
-        assert kind_cluster.api.version == ('1', '35')
+        api = kr8s.api(kubeconfig=kind_cluster.kubeconfig_path)
+        version = api.version()
+        assert version["major"] == "1"
+        assert version["minor"] == "35"
 
     def test_kubectl_version(kind_cluster):
         assert "v1.36" in kind_cluster.kubectl("version")

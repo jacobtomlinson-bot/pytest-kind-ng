@@ -20,6 +20,12 @@ def test_cluster_kubeconfig():
     assert cluster.kubeconfig_path == path
 
 
+def test_cluster_api_not_implemented():
+    cluster = KindCluster("foo")
+    with pytest.raises(NotImplementedError, match=r"KindCluster\.api"):
+        getattr(cluster, "api")
+
+
 def test_create_delete():
     cluster = KindCluster("pytest-kind-test-create-delete")
     try:
