@@ -62,6 +62,11 @@ Use language-labelled fenced code blocks. Include the complete traceback or
 command output when it is relevant; place unusually long output in a
 `<details>` block rather than truncating the useful frames.
 
+Present Python examples in `python`-labelled code blocks. Do not wrap Python
+code in a shell heredoc such as `python3 <<'PY' ... PY`; readers can infer that
+the example should be run with Python. Use a `bash` block only for shell
+commands.
+
 If a minimal reproduction is relevant but unavailable, state that limitation
 plainly instead of fabricating one.
 
