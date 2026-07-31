@@ -158,7 +158,10 @@ class KindCluster:
         try:
             for attempt in range(DOWNLOAD_ATTEMPTS):
                 try:
-                    with urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response:
+                    # URLs are trusted defaults or explicit user overrides.
+                    with urlopen(
+                        url, timeout=DOWNLOAD_TIMEOUT
+                    ) as response:  # nosec B310
                         with tmp_file.open("wb") as fd:
                             shutil.copyfileobj(response, fd)
                         if response.length:

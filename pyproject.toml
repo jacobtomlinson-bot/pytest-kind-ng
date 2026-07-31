@@ -39,13 +39,13 @@ version-file = "pytest_kind/_version.py"
 packages = ["pytest_kind"]
 
 [tool.taskipy.tasks]
-lint = "pre-commit run --all-files"
+lint = "pre-commit run --all-files --hook-stage pre-commit && pre-commit run --all-files --hook-stage pre-push"
 test = "coverage run --source=pytest_kind -m pytest tests/ && coverage report"
 test-local = "python -m http.server --directory fake-download 8000 & KIND_DOWNLOAD_URL=http://localhost:8000/kind coverage run --source=pytest_kind -m pytest -v tests/ && coverage report"
 
 [dependency-groups]
 dev = [
-    "pre-commit>=2.9.3",
+    "pre-commit>=3.2.0",
     "kr8s>=0.19.1",
     "pytest-cov>=2.7",
     "pytest>=5.1",

@@ -146,8 +146,8 @@ uv run task lint
 ```
 
 The config (`.pre-commit-config.yaml`) includes: black, reorder-python-imports, pyupgrade, flake8 (config in
-`.flake8`), mypy (with `types-requests`), bandit, pydocstyle, yamllint, safety, `uv lock --check`, gitlint (commit-msg
-linting), and various pre-commit-hooks. Some hooks only run at the `push` stage (bandit, pyupgrade, safety).
+`.flake8`), mypy (with `types-requests`), bandit, pydocstyle, yamllint, `uv audit --no-dev`, `uv lock --check`, gitlint
+(commit-msg linting), and various pre-commit-hooks. The pre-push-only hooks are pyupgrade, bandit, `uv audit`, and `uv lock`.
 
 Match existing style: black formatting, imports reordered one-per-line, type annotations on public methods, GPL/CalVer
 conventions preserved.

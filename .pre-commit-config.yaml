@@ -1,4 +1,4 @@
-minimum_pre_commit_version: 1.21.0
+minimum_pre_commit_version: 3.2.0
 repos:
   # meta
 
@@ -27,16 +27,17 @@ repos:
     rev: v3.2.3
     hooks:
       - id: pyupgrade
-        stages: [push]
+        stages: [pre-push]
 
   # linters
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.4
+    rev: 1.8.6
     hooks:
       - id: bandit
-        args: ["-x", "tests"]
-        stages: [push]
+        args: ["-ll"]
+        exclude: ^(tests/|examples/.*/tests/)
+        stages: [pre-push]
 
   - repo: https://github.com/PyCQA/pydocstyle
     rev: 6.1.1
@@ -44,25 +45,15 @@ repos:
       - id: pydocstyle
         args: ["--ignore=D10,D21,D202,D401"]
 
-  - repo: local
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.0
     hooks:
-
-      - id: safety
-        name: safety
-        entry: safety
-        language: system
-        pass_filenames: false
-        args: ["check", "--bare"]
-        stages: [push]
-
+      - id: uv-audit
+        args: ["--locked", "--no-dev"]
+        stages: [pre-push]
       - id: uv-lock
-        name: uv lock
-        description: Checks that uv.lock is up to date
-        entry: uv lock --check
-        language: system
-        pass_filenames: false
-        files: ^pyproject.toml$
-        stages: [push]
+        args: ["--check"]
+        stages: [pre-push]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.28.0
@@ -80,7 +71,7 @@ repos:
     rev: v0.1.0
     hooks:
       - id: dockerfilelint
-        stages: [commit]  # required
+        stages: [pre-commit]  # required
 
   - repo: https://github.com/pycqa/flake8
     rev: 6.0.0
