@@ -7,10 +7,16 @@ repos:
       - id: check-hooks-apply
       - id: check-useless-excludes
 
-  - repo: https://codeberg.org/hjacobs/kube-manifest-lint
-    rev: 0.2.0
+  - repo: local
     hooks:
       - id: kube-manifest-lint
+        name: Check Kubernetes manifests
+        description: Validate Kubernetes YAML manifests with JSON schema
+        entry: kube-manifest-lint
+        args: [--ignore-non-k8s-files]
+        language: python
+        additional_dependencies: [kube-manifest-lint==0.2.0]
+        types: [yaml]
 
   # formatters
   - repo: https://github.com/asottile/reorder_python_imports
