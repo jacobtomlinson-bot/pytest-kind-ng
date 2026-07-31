@@ -216,7 +216,23 @@ class KindCluster:
                 raise
 
     def create(self, config_file: Optional[Union[str, Path]] = None) -> bool:
-        """Create the kind cluster, returning whether a new cluster was created."""
+        """Create or reuse the named kind cluster.
+
+        If a cluster with the same name already exists, it is reused instead of
+        creating a replacement.
+
+        Parameters
+        ----------
+        config_file : str or pathlib.Path, optional
+            Path to a kind cluster configuration file.
+
+        Returns
+        -------
+        bool
+            ``True`` if a new cluster was created, or ``False`` if an existing
+            cluster was reused.
+
+        """
         self.ensure_kind()
 
         self.kubeconfig_path.touch(0o600, exist_ok=True)
